@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tela Suprema - Gestão de Produtos, Faturação e Turnos</title>
+  <style>
+    :root{--bg:#e6f7ff;--card:#ffffff;--accent:#0f4c81;--muted:#6b7380;--glass: rgba(255,255,255,0.7);--success:#1b9e77;--danger:#e85a4f;
+      font-family: Inter, Roboto, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial;}
+    html,body{height:100%;}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#dff3ff 60%);color:#0b2136;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;}
+
+    header{display:flex;align-items:center;gap:18px;padding:20px 28px}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo .mark{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#4aa3ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(15,76,129,0.18)}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:20px;padding:20px 28px}
+
+    .panel{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 8px 30px rgba(10,30,60,0.06)}
+    .panel h2{margin:0 0 10px 0;font-size:16px}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* product form */
+    label{display:block;font-weight:600;margin-top:10px;font-size:13px}
+    input[type=text], input[type=number], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef6;background:var(--glass);outline:none}
+    .row{display:flex;gap:10px}
+    .row .col{flex:1}
+    .actions{display:flex;gap:8px;margin-top:12px}
+    button{padding:10px 12px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(11,33,54,0.08);color:var(--accent);font-weight:700}
+    button.danger{background:var(--danger)}
+    .muted{color:var(--muted)}
+
+    /* products table */
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px 8px;text-align:left}
+    thead th{font-size:12px;color:var(--muted);font-weight:700;border-bottom:1px solid #eef6fb}
+    tbody tr{border-bottom:1px dashed #f1f7fb}
+    .pill{padding:6px 8px;border-radius:999px;background:#f2fbff;color:var(--accent);font-weight:700;font-size:13px}
+
+    /* scanner */
+    #videoPreview{width:100%;border-radius:10px;background:#e9f6ff}
+
+    /* printable label */
+    .label-preview{border:1px dashed #cfefff;padding:12px;border-radius:8px;background:#fbfeff}
+
+    /* invoice/quote */
+    .line-item{display:grid;grid-template-columns:1fr 80px 120px 80px;gap:8px;align-items:center}
+    .totals{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+
+    /* shifts */
+    .shift-list{display:flex;flex-direction:column;gap:8px}
+    .shift-card{border-radius:8px;padding:10px;background:linear-gradient(90deg,#ffffff,#f7fbff);display:flex;justify-content:space-between;align-items:center}
+
+    footer{padding:18px 28px;color:var(--muted);font-size:13px}
+
+    /* responsive */
+    @media (max-width:900px){.wrap{grid-template-columns:1fr}.logo h1{display:none}}
+
+    /* print styles for invoices/labels */
+    @media print{
+      body *{visibility:hidden}
+      .print-area, .print-area *{visibility:visible}
+      .print-area{position:fixed;left:0;top:0;width:100%}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <div class="mark">SP</div>
+      <div>
+        <h1>Tela Suprema</h1>
+        <div class="subtitle">Gestão: Produtos • Faturação • Cotações • Turnos</div>
+      </div>
+    </div>
+     
+    <header style="background:#e6f7ff;padding:3px 4px;display:flex;align-items:center;">
+  <a href="index.html#dashboard"
+     style="text-decoration:none;color:white;font-size:1.1rem;margin-right:8px;line-height:1;cursor:pointer;display:inline-block;
+       transform:translateY(-1px)">🔙</a>
+</header>
+
+     </div>
+    <div style="flex:1"></div>
+    <div class="panel" style="width:360px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:800">Cabeçalho atual</div>
+          <div class="small" id="currentHeader">Não configurado — clique em "Configurar cabeçalho"</div>
+        </div>
+        <button class="ghost" id="btnEditHeader">Configurar cabeçalho</button>
+      </div>
+      </div>
+      <div style="flex:1"></div>
+      <button id="doLogout" class="btn ghost" style="position:absolute; top:10px; right:10px; background-color:#ef4444; color:white; border:none; border-radius:4px; padding:4px 6px; cursor:pointer; font-size:7px;">🚪 Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- left column: cadastro + scanner + shifts -->
+    <div>
+      <div class="panel">
+        <h2>Cadastro / Edição de Produto</h2>
+        <div class="small">Adicione produtos manualmente ou use o scanner (se o navegador suportar a API).</div>
+
+        <label>Nome do produto</label>
+        <input id="pName" type="text" placeholder="Ex.: Sabão em pó 1kg" />
+
+        <label>Categoria</label>
+        <input id="pCategory" type="text" placeholder="Ex.: Higiene" />
+
+        <div class="row">
+          <div class="col">
+            <label>Quantidade em stock</label>
+            <input id="pQty" type="number" min="0" value="0" />
+          </div>
+          <div class="col">
+            <label>Preço unitário (MT)</label>
+            <input id="pPrice" type="number" min="0" step="0.01" value="0" />
+          </div>
+        </div>
+
+        <label>Preço a grosso (MT)</label>
+        <input id="pWholesale" type="number" min="0" step="0.01" value="0" />
+        <label>Validade do produto</label>
+        <input id="pValidity" type="date" /><label>Data de cadastro</label>
+<input id="pRegisterDate" type="datetime-local" />
+
+        <label>Quantidade a grosso</label>
+<input id="pWholesaleQty" type="number" min="0" value="0" />
+
+
+
+        <label>Código de barras / SKU</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pBarcode" type="text" placeholder="Digite ou escaneie" />
+          <button id="btnScan">🔍 Escanear</button>
+        </div>
+
+        <div class="actions">
+          <button id="btnSave">Salvar produto</button>
+          <button class="ghost" id="btnClear">Limpar</button>
+          <button class="ghost" id="btnAddSample">Carregar produtos</button>
+          
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px dashed #eef6fb" />
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <h2 style="font-size:14px;margin:0">Scanner de Código de Barras</h2>
+            <div class="small">Use a câmera do dispositivo para ler códigos (se suportado).</div>
+          </div>
+          <div style="width:140px;text-align:right">
+            <button id="btnToggleCam" class="ghost">Ativar câmera</button>
+          </div>
+        </div>
+
+        <video id="videoPreview" autoplay playsinline></video>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="ghost" id="btnGenerateLabel">Gerar etiqueta do último</button>
+          <button class="ghost" id="btnPrintLast">Imprimir etiqueta</button>
+        </div>
+
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2>Turnos (Registo de atividade)</h2>
+        <div class="small">Crie turnos, inicie/finalize e registre atividades por turno.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="shiftName" placeholder="Nome do turno (ex: Matutino)" />
+          <button id="btnStartShift">Criar / Iniciar</button>
+        </div>
+        <div style="margin-top:8px" class="shift-list" id="shifts"></div>
+      </div>
+
+    </div>
+
+    <!-- right column: products list + invoices/quotes -->
+    <div>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2>Produtos no sistema</h2>
+          <div class="small">Pesquise, edite, exclua ou gere etiquetas.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input id="searchProducts" placeholder="Pesquisar por nome, categoria ou código" style="flex:1" />
+          <select id="filterCategory"><option value="">Todas categorias</option></select>
+        </div>
+
+        <div style="margin-top:12px;overflow:auto;max-height:320px">
+          <table>
+            <thead><tr><th>Produto</th><th>Categoria</th><th>Stock</th><th>Preço</th><th>Código</th>
+    <th>Validade</th><th>Data de Cadastro</th></th><th>Quantidade a Grosso</th><th></th></tr></thead>
+            <tbody id="productsTable"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center;justify-content:flex-end">
+          <button id="btnExport" class="ghost">Exportar JSON</button>
+          <button id="btnImport" class="ghost">Importar JSON</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2>Faturação & Cotações</h2>
+        <div class="small">Monte uma fatura ou cotação, personalize cabeçalho e imprima/exporte.</div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="btnNewInvoice">Nova Fatura</button>
+          <button id="btnNewQuote" class="ghost">Nova Cotação</button>
+        </div>
+
+        <div id="docArea" style="margin-top:12px"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <Arezandra class="Tech"></Arezandra>.
+  </footer>
+
+  <!-- hidden printable area -->
+  <div id="printRoot" style="display:none"></div>
+
+  <script>
+(function(){
+  // UTIL
+  const qs = s=>document.querySelector(s);
+  const qsa = s=>Array.from(document.querySelectorAll(s));
+
+  // STORAGE KEYS
+  const KEY_PRODUCTS = 'suprema_products_v1';
+  const KEY_HEADER = 'suprema_header_v1';
+  const KEY_SHIFTS = 'suprema_shifts_v1';
+
+  // initial load
+  let products = JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
+  let header = JSON.parse(localStorage.getItem(KEY_HEADER)||'null');
+  let shifts = JSON.parse(localStorage.getItem(KEY_SHIFTS)||'[]');
+
+  // DOM
+  const pName = qs('#pName');
+  const pCategory = qs('#pCategory');
+  const pQty = qs('#pQty');
+  const pPrice = qs('#pPrice');
+  const pWholesale = qs('#pWholesale');
+  const pBarcode = qs('#pBarcode');
+  const btnSave = qs('#btnSave');
+  const btnClear = qs('#btnClear');
+  const btnAddSample = qs('#btnAddSample');
+  const productsTable = qs('#productsTable');
+  const filterCategory = qs('#filterCategory');
+  const searchProducts = qs('#searchProducts');
+  const btnExport = qs('#btnExport');
+  const btnImport = qs('#btnImport');
+  const btnScan = qs('#btnScan');
+  const videoPreview = qs('#videoPreview');
+  const btnToggleCam = qs('#btnToggleCam');
+  const btnGenerateLabel = qs('#btnGenerateLabel');
+  const btnPrintLast = qs('#btnPrintLast');
+  const currentHeader = qs('#currentHeader');
+  const btnEditHeader = qs('#btnEditHeader');
+  const shiftsContainer = qs('#shifts');
+  const btnStartShift = qs('#btnStartShift');
+  const shiftName = qs('#shiftName');
+  const btnNewInvoice = qs('#btnNewInvoice');
+  const btnNewQuote = qs('#btnNewQuote');
+  const docArea = qs('#docArea');
+  const printRoot = qs('#printRoot');
+  // elementos de formulário adicionais (adicionados)
+const pValidity = qs('#pValidity');
+const pRegisterDate = qs('#pRegisterDate');
+const pWholesaleQty = qs('#pWholesaleQty');
+const currentShiftEl = qs('#currentShift'); // pode ser nulo se não existir no HTML
+
+// define um valor inicial válido para datetime-local se estiver vazio
+if (pRegisterDate && !pRegisterDate.value) {
+  // formato yyyy-MM-ddThh:mm
+  pRegisterDate.value = new Date().toISOString().slice(0, 16);
+}
+
+
+  // CAMERA
+  let stream=null, detector=null, camActive=false, scanInterval=null;
+
+  function saveState(){
+    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
+    localStorage.setItem(KEY_HEADER, JSON.stringify(header));
+    localStorage.setItem(KEY_SHIFTS, JSON.stringify(shifts));
+  }
+
+  function uid(prefix='id'){return prefix+Math.random().toString(36).slice(2,9)}
+
+  // header editor
+  function editHeader(){
+    const company = prompt('Nome da empresa / Cabeçalho:', header?.company||'Minha Empresa');
+    if(company==null) return;
+    const address = prompt('Endereço (linha única):', header?.address||'Endereço, Cidade');
+    if(address==null) return;
+    header = {company,address}; saveState(); renderHeader();}
+  function renderHeader(){
+    if(!header) currentHeader.textContent = 'Não configurado — clique em "Configurar cabeçalho"';
+    else currentHeader.textContent = header.company + ' — ' + header.address;}
+
+  // products
+  function addOrUpdateProduct(obj){
+    if(!obj.id){ obj.id = uid('p_'); products.push(obj);} else {
+      products = products.map(p=>p.id===obj.id?obj:p);}
+    saveState(); renderProducts(); renderCategoryFilter();}
+
+  function deleteProduct(id){ if(!confirm('Eliminar produto?')) return; products = products.filter(p=>p.id!==id); saveState(); renderProducts(); renderCategoryFilter(); }
+
+  function renderProducts() {
+    const term = searchProducts.value.trim().toLowerCase();
+    const catFilter = filterCategory.value;
+    productsTable.innerHTML = '';
+
+    products.filter(p => {
+        if (catFilter && p.category !== catFilter) return false;
+        if (!term) return true;
+        return (p.name || '').toLowerCase().includes(term) || 
+               (p.category || '').toLowerCase().includes(term) || 
+               (p.barcode || '').toLowerCase().includes(term);
+    }).forEach(p => {
+        // Calcular preço com IVA
+let precoBase = p.price || 0; 
+let iva = 0.17; 
+let precoComIva = precoBase * (1 + iva); 
+
+// Calcular preço com IVA para o preço a grosso
+let precoGrossoBase = p.wholesale || 0; 
+let precoGrossoComIva = precoGrossoBase * (1 + iva); 
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><strong>${escapeHtml(p.name)}</strong><div class="small">${escapeHtml(p.id)}</div></td>
+                <td>${escapeHtml(p.category || '')}</td>
+                <td>${Number(p.qty || 0)}</td>
+                <td>${formatNumber(precoComIva)} / ${formatNumber(precoGrossoComIva)}</td> <!-- Exibe o preço com IVA -->
+                <td>${escapeHtml(p.barcode || '')}</td>
+                <td>${escapeHtml(p.validity || 'Não informado')}</td> <!-- Validade do produto -->
+                <td>${formatDate(p.registerDate) || 'Não informado'}</td> <!-- Data de cadastro -->
+                <td>${Number(p.wholesaleQty || 0)}</td> <!-- Quantidade a grosso -->
+                <td style="text-align:right">
+                    <button class="ghost" data-edit="${p.id}">Editar</button>
+                    <button class="ghost" data-label="${p.id}">Etiqueta</button>
+                    <button class="ghost" data-del="${p.id}">Eliminar</button>
+                </td>`;
+
+        productsTable.appendChild(tr);
+    });
+
+    // Attach events
+    qsa('button[data-edit]').forEach(b => b.onclick = () => { 
+        const id = b.getAttribute('data-edit'); 
+        const p = products.find(x => x.id === id); 
+        if (!p) return; 
+        loadProductToForm(p); 
+    });
+    qsa('button[data-del]').forEach(b => b.onclick = () => { 
+        deleteProduct(b.getAttribute('data-del')); 
+    });
+    qsa('button[data-label]').forEach(b => b.onclick = () => { 
+        const id = b.getAttribute('data-label'); 
+        const p = products.find(x => x.id === id); 
+        if (p) { 
+            generateLabelFor(p); 
+            showPrintable(p); 
+        } 
+    });
+}
+
+
+  function renderCategoryFilter(){
+    const cats = Array.from(new Set(products.map(p=>p.category).filter(Boolean)));
+    filterCategory.innerHTML='<option value="">Todas categorias</option>' + cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  }
+
+  function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+}
+
+
+function loadProductToForm(p) {
+  pName.value = p.name || '';
+  pCategory.value = p.category || '';
+  pQty.value = p.qty || 0;
+  pPrice.value = p.price || 0;
+  pWholesale.value = p.wholesale || 0;
+  pBarcode.value = p.barcode || '';
+  
+  // Ajustando a validade do produto no formato correto de data (yyyy-MM-dd)
+  if (pValidity) {
+    pValidity.value = p.validity ? new Date(p.validity).toISOString().slice(0, 10) : '';
+  }
+
+  // Ajustando a data de cadastro para o formato correto de datetime-local (yyyy-MM-ddThh:mm)
+  if (pRegisterDate) {
+    if (p.registerDate) {
+      const date = new Date(p.registerDate);
+      pRegisterDate.value = date.toISOString().slice(0, 16);
+    } else {
+      pRegisterDate.value = new Date().toISOString().slice(0, 16);
+    }
+  }
+
+  if (pWholesaleQty) {
+    pWholesaleQty.value = p.wholesaleQty || 0;
+  }
+
+  // Associa o turno ativo ao produto, se disponível (seguro quando elemento não existe)
+  const activeShift = p.shift ? p.shift : 'Nenhum turno ativo';
+  if (currentShiftEl) {
+    currentShiftEl.textContent = `Turno: ${activeShift}`;
+  }
+
+  pName.dataset.editId = p.id;
+}
+
+
+
+function clearForm() {
+  pName.value = '';
+  pCategory.value = '';
+  pQty.value = 0;
+  pPrice.value = 0;
+  pWholesale.value = 0;
+  pBarcode.value = '';
+  if (pValidity) pValidity.value = '';
+  if (pRegisterDate) pRegisterDate.value = new Date().toISOString().slice(0, 16);
+  if (pWholesaleQty) pWholesaleQty.value = 0;
+  if (currentShiftEl) currentShiftEl.textContent = 'Turno: Nenhum turno ativo';
+  delete pName.dataset.editId;
+}
+
+
+  btnClear.onclick = ()=> clearForm();
+
+ btnSave.onclick = () => {
+  const name = pName.value.trim();
+  if (!name) { alert('Nome obrigatório'); return; }
+
+  const obj = {
+    name,
+    category: pCategory.value.trim(),
+    qty: Number(pQty.value || 0),
+    price: Number(pPrice.value || 0),
+    wholesale: Number(pWholesale.value || 0),
+    barcode: pBarcode.value.trim(),
+    // adicionados:
+    validity: pValidity ? pValidity.value || null : null,
+    registerDate: pRegisterDate ? pRegisterDate.value || new Date().toISOString() : new Date().toISOString(),
+    wholesaleQty: pWholesaleQty ? Number(pWholesaleQty.value || 0) : 0
+  };
+
+  if (pName.dataset.editId) { obj.id = pName.dataset.editId; }
+
+  addOrUpdateProduct(obj);
+  logShiftActivity(`Produto "${name}" salvo/atualizado.`);
+  clearForm();
+};
+
+function deleteProduct(id){
+  if(!confirm('Eliminar produto?')) return;
+  products = products.filter(p=>p.id!==id);
+  logShiftActivity(`Produto com ID ${id} eliminado.`);
+  saveState(); renderProducts(); renderCategoryFilter();
+}
+
+
+  btnAddSample.onclick = () => {
+  if (!confirm('Carregar 6 produtos de amostra?')) return;
+  
+  const samples = [
+    { 
+      name: 'Sabão em Pó 1kg', category: 'Limpeza', qty: 50, price: 450.00, wholesale: 420, barcode: '789000100001',validity: '2025-12-31',registerDate: new Date().toISOString(),wholesaleQty: 50,shift: 'Matutino'},
+    { name: 'Água Mineral 500ml',category: 'Bebidas',qty: 200,price: 20.00,wholesale: 18,barcode: '789000100002',validity: '2026-01-15',registerDate: new Date().toISOString(),wholesaleQty: 100,shift: 'Matutino'},
+    { 
+      name: 'Pasta de Dentes 90g', 
+      category: 'Higiene', 
+      qty: 120, 
+      price: 150.00, 
+      wholesale: 130, 
+      barcode: '789000100003',
+      validity: '2025-11-30',
+      registerDate: new Date().toISOString(),
+      wholesaleQty: 60,
+      shift: 'Vespertino'
+    },
+    { 
+      name: 'Óleo 900ml', 
+      category: 'Cozinha', 
+      qty: 60, 
+      price: 350.00, 
+      wholesale: 320, 
+      barcode: '789000100004',
+      validity: '2025-10-10',
+      registerDate: new Date().toISOString(),
+      wholesaleQty: 30,
+      shift: 'Vespertino'
+    },
+    { 
+      name: 'Arroz 5kg', 
+      category: 'Alimentos', 
+      qty: 80, 
+      price: 1600.00, 
+      wholesale: 1500, 
+      barcode: '789000100005',
+      validity: '2026-02-20',
+      registerDate: new Date().toISOString(),
+      wholesaleQty: 40,
+      shift: 'Noturno'
+    },
+    { 
+      name: 'Farinha 1kg', 
+      category: 'Alimentos', 
+      qty: 100, 
+      price: 60.00, 
+      wholesale: 55, 
+      barcode: '789000100006',
+      validity: '2025-12-01',
+      registerDate: new Date().toISOString(),
+      wholesaleQty: 50,
+      shift: 'Noturno'
+    }
+  ];
+
+  // Adiciona os produtos de amostra ao array de produtos
+  samples.forEach(s => { s.id = uid('p_'); products.push(s); });
+  
+  saveState();  // Salva os produtos no armazenamento
+  renderProducts();  // Re-renderiza a tabela de produtos
+  renderCategoryFilter();  // Atualiza o filtro de categorias
+}
+
+  // EXPORT / IMPORT
+  btnExport.onclick = ()=>{
+    const blob = new Blob([JSON.stringify({products,header,shifts},null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='suprema_export.json'; a.click(); URL.revokeObjectURL(url);
+  }
+  btnImport.onclick = ()=>{
+    const input = document.createElement('input'); input.type='file'; input.accept='application/json'; input.onchange=e=>{
+      const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload=ev=>{
+        try{ const data = JSON.parse(ev.target.result); if(data.products) products = data.products; if(data.header) header = data.header; if(data.shifts) shifts = data.shifts; saveState(); renderAll(); alert('Importado com sucesso'); }catch(err){ alert('Ficheiro inválido') }}; reader.readAsText(f);
+    }; input.click();}
+
+  // SEARCH
+  searchProducts.oninput = ()=> renderProducts(); filterCategory.onchange = ()=> renderProducts();
+
+  // formatting helpers
+  function formatNumber(v){ return Number(v||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+  // BARCODE / SCANNER - use BarcodeDetector if available
+  async function startCamera(){
+    if(camActive) return;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      videoPreview.srcObject = stream; camActive=true; btnToggleCam.textContent='Desativar câmera';
+      // create detector if available
+      if(window.BarcodeDetector){
+        try{ detector = new BarcodeDetector({formats: ['ean_13','ean_8','qr_code','code_128','upc_e','upc_a']}); }
+        catch(e){ detector=null }}
+      if(detector){ scanInterval = setInterval(scanFrame,600); }
+      else { console.warn('BarcodeDetector não disponível, use entrada manual.'); }
+    }catch(err){ alert('Não foi possível ativar a câmera: '+err.message); }}
+  function stopCamera(){ if(!camActive) return; videoPreview.srcObject = null; stream && stream.getTracks().forEach(t=>t.stop()); stream=null; camActive=false; btnToggleCam.textContent='Ativar câmera'; if(scanInterval) clearInterval(scanInterval); }
+  btnToggleCam.onclick = ()=> camActive? stopCamera(): startCamera();
+
+  async function scanFrame(){ if(!detector || !videoPreview || videoPreview.readyState<2) return; try{
+    const barcodes = await detector.detect(videoPreview);
+    if(barcodes && barcodes.length){ const code = barcodes[0].rawValue; pBarcode.value = code; flashMessage('Código detectado: '+code); stopCamera(); }
+  }catch(e){ console.error(e); }}
+
+  btnScan.onclick = ()=>{
+    // try manual prompt fallback
+    const manual = prompt('Insira o código de barras (ou cancele para abrir câmera):');
+    if(manual) { pBarcode.value = manual; return; }
+    // otherwise try camera
+    if('mediaDevices' in navigator) startCamera(); else alert('Câmera não suportada neste dispositivo.');}
+
+  // label generation and printing
+  let lastGeneratedLabel = null;
+  function generateLabelFor(p){ lastGeneratedLabel = p; const html = `<div class="label-preview print-area" style="width:260px">
+      <div style="font-weight:800;font-size:16px">${escapeHtml(p.name)}</div>
+      <div class="small">${escapeHtml(p.category||'')}</div>
+      <div style="margin-top:6px;font-weight:700">Preço: ${formatNumber(p.price)} MT</div>
+      <div style="margin-top:6px">Código: ${escapeHtml(p.barcode||p.id)}</div>
+      <div style="margin-top:6px;font-size:12px;color:${'#6b7380'}">${header?escapeHtml(header.company):''}</div>
+    </div>`;
+    printRoot.innerHTML = html;}
+  function showPrintable(p){ generateLabelFor(p); 
+    printRoot.style.display='block';
+    // open in new window for better printing
+    const w = window.open('','_blank'); w.document.write('<html><head><title>Etiqueta</title></head><body>'+printRoot.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),400);
+  }
+  btnGenerateLabel.onclick = ()=>{ if(products.length===0){ alert('Sem produtos.'); return;} generateLabelFor(products[products.length-1]); alert('Etiqueta gerada na área de impressão (botão Imprimir).'); }
+  btnPrintLast.onclick = ()=>{ if(!lastGeneratedLabel){ alert('Nenhuma etiqueta gerada ainda.'); return;} showPrintable(lastGeneratedLabel); }
+
+  // printable helper used to show invoice/quote
+  function openDocumentForPrint(htmlContent){ const w = window.open('','_blank'); w.document.write('<html><head><title>Documento</title><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body>'+htmlContent+'</body></html>'); w.document.close(); setTimeout(()=>w.print(),500); }
+
+  // INVOICES / QUOTES
+  function buildInvoiceEditor(type='invoice'){
+    // type: 'invoice' or 'quote'
+    const id = uid(type+'_');
+    const container = document.createElement('div');
+    container.className='panel';
+    container.style.marginTop='10px';
+    container.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>${type==='invoice'?'Fatura':'Cotação'}</strong> — ${id}</div>
+        <div><button class='ghost' data-action='print'>Imprimir</button><button class='ghost' data-action='save'>Salvar</button></div>
+      </div>
+      <div style='margin-top:8px;display:flex;gap:8px'>
+        <input id='docClient_${id}' placeholder='Cliente / Empresa' style='flex:1' />
+        <input id='docRef_${id}' placeholder='Referência' style='width:160px' />
+      </div>
+      <div style='margin-top:8px;display:flex;gap:8px'>
+        <select id='docProduct_${id}' style='flex:1'><option value="">Selecionar produto / serviço</option></select>
+        <input id='docQty_${id}' type='number' min='1' value='1' style='width:100px' />
+        <button id='docAdd_${id}' class='ghost'>Adicionar</button>
+      </div>
+      <div style='margin-top:10px' id='docItems_${id}'></div>
+      <div style='display:flex;justify-content:flex-end;margin-top:8px'><div class='totals'>
+        <div>Subtotal: <strong id='subtotal_${id}'>0.00</strong></div>
+        <div>Desconto: <input id='discount_${id}' type='number' value='0' style='width:80px' /> %</div>
+        <div>Imposto: <input id='tax_${id}' type='number' value='0' style='width:80px' /> %</div>
+        <div style='font-size:18px'>Total: <strong id='total_${id}'>0.00</strong></div>
+      </div></div>`;
+
+    docArea.innerHTML=''; docArea.appendChild(container);
+
+    // populate product select
+    const sel = container.querySelector('#docProduct_'+id);
+    sel.innerHTML = '<option value="">Selecionar produto / serviço</option>' + products.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} — ${formatNumber(p.price)} MT</option>`).join('');
+
+    const items = [];
+    function recalc(){ const subtotal = items.reduce((s,it)=>s+it.qty*(it.price||0),0); const disc = Number(container.querySelector('#discount_'+id).value||0); const tax = Number(container.querySelector('#tax_'+id).value||0); const afterDisc = subtotal*(1-disc/100); const total = afterDisc*(1+tax/100); container.querySelector('#subtotal_'+id).textContent = formatNumber(subtotal); container.querySelector('#total_'+id).textContent = formatNumber(total); }
+
+    container.querySelector('#docAdd_'+id).onclick = ()=>{
+      const pid = sel.value; if(!pid){ alert('Selecione um produto'); return; }
+      const pr = products.find(p=>p.id===pid); if(!pr) return; const qty = Number(container.querySelector('#docQty_'+id).value||1);
+      const itm = {id:pr.id,name:pr.name,qty,price:pr.price}; items.push(itm); renderItems(); recalc();}
+
+    function renderItems(){ const root = container.querySelector('#docItems_'+id); root.innerHTML = items.map((it,idx)=>`<div class='line-item'><div>${escapeHtml(it.name)}</div><div>${it.qty}</div><div>${formatNumber(it.price)}</div><div><button data-rem='${idx}' class='ghost'>Remover</button></div></div>`).join(''); qsa('[data-rem]').forEach(b=>b.onclick=()=>{ items.splice(Number(b.getAttribute('data-rem')),1); renderItems(); recalc(); }); }
+
+    container.querySelector('#discount_'+id).oninput = recalc; container.querySelector('#tax_'+id).oninput = recalc;
+
+    container.querySelector('[data-action=print]').onclick = ()=>{
+      // prepare print html
+      const docHtml = renderDocHtml({id,type,client:container.querySelector('#docClient_'+id).value,ref:container.querySelector('#docRef_'+id).value,items,discount:Number(container.querySelector('#discount_'+id).value||0),tax:Number(container.querySelector('#tax_'+id).value||0)});
+      openDocumentForPrint(docHtml);
+    }
+    container.querySelector('[data-action=save]').onclick = ()=>{
+      const saved = {id,type,client:container.querySelector('#docClient_'+id).value,ref:container.querySelector('#docRef_'+id).value,items,discount:Number(container.querySelector('#discount_'+id).value||0),tax:Number(container.querySelector('#tax_'+id).value||0),created:new Date().toISOString()};
+      const docs = JSON.parse(localStorage.getItem('suprema_docs_v1')||'[]'); docs.push(saved); localStorage.setItem('suprema_docs_v1',JSON.stringify(docs)); alert('Documento salvo localmente');
+    }}
+
+  function renderDocHtml({id,type,client,ref,items,discount,tax}){
+    const subtotal = items.reduce((s,it)=>s + it.qty*(it.price||0),0);
+    const afterDisc = subtotal*(1-(discount||0)/100);
+    const total = afterDisc*(1+(tax||0)/100);
+    return `
+      <div style='font-family:Arial;padding:18px'>
+        <div style='display:flex;justify-content:space-between;align-items:center'>
+          <div>
+            <div style='font-size:20px;font-weight:800'>${header?escapeHtml(header.company):'Minha Empresa'}</div>
+            <div style='font-size:12px'>${header?escapeHtml(header.address):''}</div>
+          </div>
+          <div style='text-align:right'>
+            <div style='font-size:18px;font-weight:800'>${type==='invoice'?'FATURA':'COTAÇÃO'}</div>
+            <div>${new Date().toLocaleString()}</div>
+            <div>Ref: ${escapeHtml(ref||'')}</div>
+          </div>
+        </div>
+        <hr/>
+        <div><strong>Cliente:</strong> ${escapeHtml(client||'')}</div>
+        <table style='width:100%;margin-top:12px;border-collapse:collapse'>
+          <thead><tr><th style='text-align:left;border-bottom:1px solid #ddd'>Item</th><th style='text-align:right;border-bottom:1px solid #ddd'>Qtd</th><th style='text-align:right;border-bottom:1px solid #ddd'>Preço</th><th style='text-align:right;border-bottom:1px solid #ddd'>Total</th></tr></thead>
+          <tbody>
+            ${items.map(it=>`<tr><td>${escapeHtml(it.name)}</td><td style='text-align:right'>${it.qty}</td><td style='text-align:right'>${formatNumber(it.price)}</td><td style='text-align:right'>${formatNumber(it.qty*(it.price||0))}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        <div style='display:flex;justify-content:flex-end;margin-top:12px'>
+          <div style='width:300px'>
+            <div>Subtotal: ${formatNumber(subtotal)}</div>
+            <div>Desconto: ${discount}%</div>
+            <div>Imposto: ${tax}%</div>
+            <div style='font-weight:800;margin-top:8px'>Total: ${formatNumber(total)}</div>
+          </div>
+        </div>
+      </div>`;}
+
+
+      // Função auxiliar para registrar atividades automaticamente no turno ativo
+function logShiftActivity(description) {
+  // procura o turno ativo (aquele com start definido e sem end)
+  const activeShift = shifts.find(s => s.start && !s.end);
+  if (!activeShift) return; // nenhum turno ativo
+
+  activeShift.activities = activeShift.activities || [];
+  activeShift.activities.push({
+    time: new Date().toISOString(),
+    note: description
+  });
+  saveState();
+  renderShifts();
+}
+
+
+  // SHIFTS
+  function renderShifts() {
+  shiftsContainer.innerHTML = '';
+  shifts.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'shift-card';
+    div.innerHTML = `
+      <div>
+        <div style='font-weight:800'>${escapeHtml(s.name)}</div>
+        <div class='small'>Início: ${s.start ? new Date(s.start).toLocaleString() : '-'} | Fim: ${s.end ? new Date(s.end).toLocaleString() : '-'}</div>
+        <div class='small'>Integrantes: ${s.members && s.members.length ? s.members.join(', ') : 'Nenhum'}</div>
+      </div>
+      <div style='display:flex;gap:8px;align-items:center'>
+        <div class='small'>Atividades: ${s.activities ? s.activities.length : 0}</div>
+        <button class='ghost' data-start='${s.id}'>Iniciar</button>
+        <button class='ghost' data-stop='${s.id}'>Finalizar</button>
+      </div>
+      <ul class='small' style='margin-top:6px;'>
+        ${s.activities ? s.activities.map(a => `<li>${new Date(a.time).toLocaleTimeString()} — ${escapeHtml(a.note)}</li>`).join('') : ''}
+      </ul>
+    `;
+    shiftsContainer.appendChild(div);
+  });
+
+  // eventos
+  qsa('button[data-start]').forEach(b => b.onclick = () => {
+    const id = b.getAttribute('data-start');
+    const s = shifts.find(x => x.id === id);
+    if (!s) return;
+    s.start = new Date().toISOString();
+    logShiftActivity(`Turno "${s.name}" iniciado`);
+    saveState();
+    renderShifts();
+  });
+
+  qsa('button[data-stop]').forEach(b => b.onclick = () => {
+    const id = b.getAttribute('data-stop');
+    const s = shifts.find(x => x.id === id);
+    if (!s) return;
+    s.end = new Date().toISOString();
+    logShiftActivity(`Turno "${s.name}" finalizado`);
+    saveState();
+    renderShifts();
+  });
+}
+
+  btnStartShift.onclick = () => {
+  const name = shiftName.value.trim();
+  if (!name) { alert('Nome do turno obrigatório'); return; }
+
+  // Perguntar os integrantes do turno
+  const membersInput = prompt('Digite os nomes dos integrantes separados por vírgula (ex: João, Maria, Paulo):', '');
+  const members = membersInput ? membersInput.split(',').map(m => m.trim()).filter(Boolean) : [];
+
+  const s = {
+    id: uid('shift_'),
+    name,
+    start: new Date().toISOString(),
+    activities: [],
+    members
+  };
+  shifts.push(s);
+  saveState();
+  renderShifts();
+  shiftName.value = '';
+};
+
+
+  // helpers
+  function flashMessage(msg){ console.log(msg); }
+
+  // initial render
+  function renderAll(){ renderHeader(); renderProducts(); renderCategoryFilter(); renderShifts(); }
+  renderAll();
+
+  // header edit
+  btnEditHeader.onclick = editHeader;
+
+  // allow creating invoice/quote
+  btnNewInvoice.onclick = ()=> buildInvoiceEditor('invoice');
+  btnNewQuote.onclick = ()=> buildInvoiceEditor('quote');
+
+  // small safety: warn on unload
+  window.addEventListener('beforeunload', e=>{ if(true){ e.returnValue='Os dados estão guardados no browser.'; }});
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Quando o conteúdo da página for carregado
+    const logoutButton = document.getElementById('doLogout');
+    
+    // Inicializando a variável logs se ela não estiver definida
+    let logs = JSON.parse(localStorage.getItem('suprema_logs_v1') || '[]'); 
+    
+    // Verificar se o botão de logout existe
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            console.log('Botão de logout clicado');
+            
+            // Lógica de logout
+            currentUser = null;  
+            sessionStorage.removeItem('suprema_current_user');  
+            
+            // Verificar se o elemento 'currentUserBadge' existe
+            const currentUserBadge = document.getElementById('currentUserBadge');
+            if (currentUserBadge) {
+                currentUserBadge.textContent = 'Usuário: guest';}
+            
+            // Registra o logout no histórico de logs
+            logs.unshift({id: uid('log_'), date: new Date().toISOString(), user: 'guest', type: 'logout', details: 'Logout'});  
+            localStorage.setItem('suprema_logs_v1', JSON.stringify(logs));  
+            
+            // Redireciona para a página index.html após o logout
+            window.location.href = 'index.html';});
+    } else {
+        console.error('Botão de logout não encontrado');}});
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Verifique se o botão 'Voltar ao Dashboard' existe antes de adicionar o evento
+  const backButton = document.getElementById('backToDashboard');
+  if (backButton) {
+    backButton.addEventListener('click', function() {
+      // Acessar as seções e alterar sua visibilidade
+      const entradasSection = document.getElementById('entradasSection');
+      const saidasSection = document.getElementById('saidasSection');
+      const sobreSection = document.getElementById('sobreSection');
+      const dashboard = document.getElementById('dashboard');
+
+      // Garantir que os elementos existem antes de tentar alterar o estilo
+      if (entradasSection) entradasSection.style.display = 'none';
+      if (saidasSection) saidasSection.style.display = 'none';
+      if (sobreSection) sobreSection.style.display = 'none';
+      if (dashboard) dashboard.style.display = 'flex';  
+    });}});
+
+})();
+  </script>
+</body>
+</html>

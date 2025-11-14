@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SmartStock — Dashboard Profissional</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg1: linear-gradient(180deg,#e6f4ff 0%, #dff3ff 50%);
+      --glass: rgba(255,255,255,0.6);
+      --card: rgba(255,255,255,0.85);
+      --muted:#6b7280;
+      --accent:#0ea5ff; /* neon-ish blue */
+      --accent-2:#2563eb;
+      --success:#10b981;
+      --danger:#ef4444;
+      --glass-border: rgba(255,255,255,0.25);
+      font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    }
+    *{box-sizing:border-box}
+    html,body,#app{height:100%;margin:0}
+    body{background:var(--bg1);color:#07102a;font-size:14px;-webkit-font-smoothing:antialiased}
+
+    /* layout */
+    .app{display:flex;min-height:100vh}
+    .sidebar{width:78px;background:transparent;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center}
+    .sidebar .logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent-2),#60a5fa);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;box-shadow:0 8px 30px rgba(37,99,235,0.12)}
+    .navbtn{width:56px;height:56px;border-radius:12px;border:none;background:linear-gradient(180deg,rgba(255,255,255,0.8),rgba(255,255,255,0.6));box-shadow:0 6px 18px rgba(15,23,42,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .navbtn:hover{transform:translateY(-4px)}
+
+    .main{flex:1;padding:18px 22px;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .search{flex:1;margin-left:18px;margin-right:18px}
+    .search input{width:100%;padding:10px 14px;border-radius:12px;border:none;background:rgba(255,255,255,0.6);box-shadow:inset 0 1px 0 rgba(255,255,255,0.6)}
+
+    .topbar{display:flex;align-items:center;gap:12px}
+    .avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#60a5fa,#3b82f6);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    .card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+    .card{background:var(--card);border-radius:14px;padding:16px;backdrop-filter:blur(8px);border:1px solid var(--glass-border);box-shadow:0 10px 30px rgba(2,6,23,0.06)}
+    .card h4{margin:0 0 8px 0}
+    .muted{color:var(--muted);font-size:13px}
+
+    .layout{display:flex;gap:14px}
+    .workspace{flex:1}
+    .aside{width:360px;display:flex;flex-direction:column;gap:12px}
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;text-align:left}
+    th{color:var(--muted);font-weight:600}
+
+    /* fancy offcanvas */
+    .offcanvas{position:fixed;right:-520px;top:0;width:480px;height:100%;background:linear-gradient(180deg,rgba(255,255,255,0.98),#f4fbff);box-shadow:-30px 0 60px rgba(2,6,23,0.12);transition:right .32s;border-left:1px solid rgba(15,23,42,0.04);padding:22px;z-index:60}
+    .offcanvas.open{right:0}
+    .offcanvas h2{margin-top:0}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,0.85),rgba(255,255,255,0.65));border:1px solid var(--glass-border)}
+
+    /* notifications */
+    .notif-bubble{position:relative}
+    .notif-bubble::after{content:'';position:absolute;top:-6px;right:-6px;width:12px;height:12px;border-radius:50%;background:var(--danger);border:2px solid white}
+
+    footer{margin-top:18px;padding:14px;border-radius:12px;background:linear-gradient(90deg,rgba(255,255,255,0.6),rgba(255,255,255,0.4));display:flex;justify-content:space-between;align-items:center;border:1px solid var(--glass-border)}
+
+    .btn{padding:8px 12px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(14,165,255,0.14);color:var(--accent)}
+    .small{font-size:13px;padding:6px 8px}
+
+    .suggestion{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:12px;background:linear-gradient(90deg,rgba(250,250,253,0.9),rgba(255,255,255,0.85));border:1px solid rgba(2,6,23,0.02);margin-bottom:8px}
+
+    /* animations */
+    .fade-in{animation:fadeIn .45s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+    @media(max-width:1100px){.card-grid{grid-template-columns:repeat(2,1fr)}.aside{display:none}}
+    @media(max-width:720px){.sidebar{display:none}.card-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar">
+      <div class="logo">SS</div>
+      <button class="navbtn" title="Dashboard" onclick="scrollToTop()">🏠</button>
+      <button class="navbtn" title="Usuários" onclick="openPanel('users')">👥</button>
+      <button class="navbtn" title="Fornecedores" onclick="openPanel('suppliers')">🏷️</button>
+      <button class="navbtn" title="Produtos Ouro" onclick="openPanel('gold')">💎</button>
+      <button class="navbtn notif-bubble" title="Notificações" onclick="openPanel('alerts')">🔔</button>
+      <button class="navbtn" title="Propostas" onclick="openPanel('purchase')">🧾</button>
+      <button class="navbtn" title="Relatórios" onclick="openPanel('reports')">📊</button>
+      <button class="navbtn" title="Turnos" onclick="openPanel('shifts')">🕓</button>
+      <button class="navbtn" title="Configurações" onclick="openPanel('settings')">⚙️</button>
+    </aside>
+
+    <main class="main">
+      <header>
+        <div style="display:flex;align-items:center">
+          <div style="font-weight:800;font-size:18px">SmartStock</div>
+          <div class="search"><input placeholder="Procurar produto, fornecedor ou usuário..." oninput="searchGlobal(this.value)"/></div>
+          <div class="topbar">
+            <div class="pill muted">Versão I</div>
+            <button class="btn ghost small" onclick="seedDemo()">Dados locais</button>
+            <div class="avatar">AM</div>
+            <header style="background:#e6f7ff;padding:3px 4px;display:flex;align-items:center;">
+  <a href="index.html#dashboard"
+     style="text-decoration:none;color:white;font-size:1.1rem;margin-right:8px;line-height:1;cursor:pointer;display:inline-block;
+       transform:translateY(-1px)">🔙</a>
+          </div>
+        </div>
+      </header>
+
+      <section class="card-grid">
+        <div class="card fade-in">
+          <h4>Total no Estoque</h4>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:22px;font-weight:800" id="total-items">0</div>
+              <div class="muted">Itens disponíveis</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:18px;font-weight:700" id="total-value">MT 0</div>
+              <div class="muted">Valor estimado</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card fade-in">
+          <h4>Alertas</h4>
+          <div id="alertsPanel" class="muted">Sem alertas</div>
+        </div>
+
+        <div class="card fade-in">
+          <h4>Produtos Ouro</h4>
+          <div id="goldList" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <div class="layout">
+        <div class="workspace">
+          <div class="card">
+            <h4>Controle de Estoque — tabela</h4>
+            <div class="muted" style="margin-bottom:8px">Mostra entradas, saídas, stock atual, preço e lucro</div>
+            <table>
+              <thead><tr><th>Produto</th><th>Inicial</th><th>Saídas</th><th>Atual</th><th>Preço</th><th>Lucro</th><th>Expira</th><th></th></tr></thead>
+              <tbody id="stockTable"></tbody>
+            </table>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+              <button class="btn ghost small" onclick="exportAllCSV()">Exportar CSV</button>
+              <button class="btn small" onclick="exportAllPDF()">Exportar PDF</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h4>Relatório de Turnos (Linha)</h4>
+            <canvas id="turnChart" width="800" height="220"></canvas>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <select id="monthSelect" onchange="renderTurnChart()"></select>
+              <button class="btn small" onclick="downloadTurnReport()">Baixar CSV</button>
+              <button class="btn ghost small" onclick="downloadChartImage()">Baixar Imagem</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="aside">
+          <div class="card">
+            <h4>Sugestões para Reabastecer</h4>
+            <div id="suggestions"></div>
+          </div>
+
+          <div class="card">
+            <h4>Fornecedores Rápidos</h4>
+            <div id="quickSuppliers"></div>
+          </div>
+
+          <div class="card">
+            <h4>Atalhos</h4>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn" onclick="openPanel('purchase')">Propor Compra</button>
+              <button class="btn ghost" onclick="openPanel('reports')">Relatórios Mensais</button>
+              <button class="btn ghost" onclick="openPanel('alerts')">Ver Alertas</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer>
+        <div>
+          <strong>SmartStock</strong>
+          <div class="muted">Painel central • Arezandra • Relatórios mensais</div>
+        </div>
+        <div class="muted">© <span id="year"></span></div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Offcanvas panels multiple -->
+  <aside id="off-users" class="offcanvas"><h2>Gerir Usuários</h2>
+    <div><input id="userName" placeholder="Nome" style="margin-bottom:8px"/><select id="userRole"><option value="admin">Admin</option><option value="tecnico">Técnico</option><option value="coleta">Coleta</option></select>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" onclick="addUser()">Adicionar</button><button class="btn ghost" onclick="closePanel('users')">Fechar</button></div>
+    <hr><div id="usersList"></div></div></aside>
+
+  <aside id="off-suppliers" class="offcanvas"><h2>Fornecedores</h2>
+    <div><input id="supName" placeholder="Nome do fornecedor" style="margin-bottom:8px"/><input id="supContact" placeholder="Contacto"/>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="addSupplier()">Adicionar</button><button class="btn ghost" onclick="closePanel('suppliers')">Fechar</button></div>
+    <hr><div id="supList"></div></div></aside>
+
+  <aside id="off-purchase" class="offcanvas"><h2>Proposta de Compra</h2>
+    <div>
+      <label>Produto</label>
+      <select id="purchaseProduct"></select>
+      <label style="margin-top:8px">Fornecedor</label>
+      <select id="purchaseSupplier"></select>
+      <div style="display:flex;gap:8px;margin-top:8px"><input id="purchaseQty" placeholder="Quantidade" type="number"/></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="createPurchaseProposal()">Criar proposta</button><button class="btn ghost" onclick="closePanel('purchase')">Fechar</button></div>
+      <hr><div id="purchaseList"></div>
+    </div>
+  </aside>
+
+  <aside id="off-reports" class="offcanvas"><h2>Relatórios Mensais</h2>
+    <div>
+      <label>Selecionar mês</label>
+      <select id="reportsMonth"></select>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="generateMonthlyPDF()">Gerar PDF</button><button class="btn ghost" onclick="closePanel('reports')">Fechar</button></div>
+      <hr>
+      <div id="reportsPreview"></div>
+    </div>
+  </aside>
+
+  <aside id="off-alerts" class="offcanvas"><h2>Notificações & Alertas</h2>
+    <div id="alertsList"></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="clearAlerts()">Marcar tudo como lido</button><button class="btn ghost" onclick="closePanel('alerts')">Fechar</button></div>
+  </aside>
+
+  <aside id="off-gold" class="offcanvas"><h2>Produtos de Ouro</h2>
+    <div id="goldPanel"></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="autoRecommend()">Gerar recomendações</button><button class="btn ghost" onclick="closePanel('gold')">Fechar</button></div>
+  </aside>
+
+  <aside id="off-shifts" class="offcanvas"><h2>Turnos & Produtividade</h2>
+    <div>
+      <canvas id="shiftChart" width="420" height="220"></canvas>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="downloadShiftCSV()">Exportar CSV</button><button class="btn ghost" onclick="closePanel('shifts')">Fechar</button></div>
+    </div>
+  </aside>
+
+  <aside id="off-settings" class="offcanvas"><h2>Configurações do Sistema</h2>
+    <div>
+      <label>Tema</label>
+      <select id="themeSelect"><option value="light">Claro</option><option value="dark">Escuro</option></select>
+      <div style="margin-top:8px">Backup local: <button class="btn ghost small" onclick="exportAllJSON()">Exportar JSON</button></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" onclick="resetDemo()">Reset Demo</button><button class="btn ghost" onclick="closePanel('settings')">Fechar</button></div>
+    </div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    // state & persistence
+    const STORAGE_KEY = 'smartstock_pro_v2';
+    const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    state.products = state.products || [];
+    state.users = state.users || [];
+    state.suppliers = state.suppliers || [];
+    state.purchases = state.purchases || [];
+    state.turns = state.turns || {}; // 'YYYY-MM': {manha:..,tarde:..}
+
+    document.getElementById('year').innerText = new Date().getFullYear();
+
+     // Adicionando funções ao objeto global window
+window.openPanel = openPanel;
+window.closePanel = closePanel;
+window.addUser = addUser;
+window.removeUser = removeUser;
+window.addSupplier = addSupplier;
+window.removeSupplier = removeSupplier;
+window.seedDemo = seedDemo;
+window.addExitPrompt = addExitPrompt;
+window.createPurchaseProposal = createPurchaseProposal;
+window.exportAllCSV = exportAllCSV;
+window.exportAllPDF = exportAllPDF;
+window.generateMonthlyPDF = generateMonthlyPDF;
+window.exportAllJSON = exportAllJSON;
+window.clearAlerts = clearAlerts;
+window.autoRecommend = autoRecommend;
+window.downloadTurnReport = downloadTurnReport;
+window.downloadChartImage = downloadChartImage;
+window.downloadShiftCSV = downloadShiftCSV;
+window.resetDemo = resetDemo;
+
+
+    // Funções de download
+function downloadTurnReport() {
+    const month = document.getElementById('monthSelect').value;
+    if(!month) return alert('Nenhum mês');
+    const data = state.turns[month];
+    let csv = 'turno,valor\n';
+    Object.keys(data).forEach(k => {
+        csv += `${k},${data[k]}\n`;
+    });
+    downloadBlob(csv, `turn_report_${month}.csv`, 'text/csv');}
+
+function downloadChartImage() {
+    const c = document.getElementById('turnChart');
+    const url = c.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'turn_chart.png';
+    a.click();}
+
+function downloadShiftCSV() {
+    const months = Object.keys(state.turns);
+    const latest = months[months.length - 1];
+    if (!latest) return alert('Sem dados de turnos');
+    let csv = 'turno,valor\n';
+    Object.entries(state.turns[latest]).forEach(([k, v]) => {
+        csv += `${k},${v}\n`;
+    });
+    downloadBlob(csv, `shift_${latest}.csv`, 'text/csv');}
+
+function downloadBlob(content, filename, type) {
+    const a = document.createElement('a');
+    const blob = new Blob([content], { type });
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// Exportar PDF simples usando jsPDF
+async function generateMonthlyPDF() {
+    const { jsPDF } = window.jspdf;
+    const month = document.getElementById('reportsMonth').value;
+    if(!month) return alert('Selecione mês');
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Relatório - ' + month, 14, 22);
+    doc.setFontSize(11);
+    let y = 34;
+    state.products.forEach(p => {
+        doc.text(`${p.name} | Atual: ${Math.max(0, p.initial - p.exits)} | Preço: MT ${p.price}`, 14, y);
+        y += 6;
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+        }
+    });
+    doc.save(`relatorio_${month}.pdf`);}
+
+function exportAllCSV() {
+    let csv = 'produto,inicial,saidas,atual,preco,lucro,expira\n';
+    state.products.forEach(p => {
+        const atual = Math.max(0, p.initial - p.exits);
+        const lucro = (p.price - p.cost) * p.exits;
+        csv += `${p.name},${p.initial},${p.exits},${atual},${p.price},${lucro},${p.expiry}\n`;
+    });
+    downloadBlob(csv, 'stock_report.csv', 'text/csv');}
+
+// Exportar tudo em JSON
+function exportAllJSON() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'smartstock_backup.json';
+    a.click();
+    URL.revokeObjectURL(a.href);}
+
+// Funções auxiliares
+function openPurchaseFor(productId) {
+    openPanel('purchase');
+    setTimeout(() => {
+        document.getElementById('purchaseProduct').value = productId;
+    }, 250);}
+
+function autoRecommend() {
+    alert('Recomendações geradas!');}
+
+function clearAlerts() {
+    document.getElementById('alertsList').innerHTML = '<div class="muted">Nenhuma notificação</div>';}
+
+function resetDemo() {
+    if (confirm('Resetar demo?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();}}
+
+// Buscar globalmente (destaque)
+function searchGlobal(q) {
+    q = q.toLowerCase();
+    const rows = document.querySelectorAll('#stockTable tr');
+    rows.forEach(r => {
+        r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';});}
+
+
+    // helpers
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); updateUI(); }
+    function format(n){ return Number(n).toLocaleString('pt-MZ'); }
+    function offsetDate(days){ const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().split('T')[0]; }
+
+    // seed demo
+    function seedDemo(){ state.products = [
+      {id:'p1',name:'Água Mineral',initial:200,exits:120,price:40,cost:20,expiry:offsetDate(200),supplierId:'s1'},
+      {id:'p2',name:'Sabonete',initial:120,exits:80,price:25,cost:10,expiry:offsetDate(80),supplierId:'s2'},
+      {id:'p3',name:'Leite UHT',initial:80,exits:30,price:55,cost:30,expiry:offsetDate(30),supplierId:'s1'},
+      {id:'p4',name:'Pão Fatiado',initial:100,exits:95,price:15,cost:5,expiry:offsetDate(10),supplierId:'s2'}
+    ];
+    state.suppliers = [{id:'s1',name:'Distribuidor A',contact:'84 0000 000'},{id:'s2',name:'Hiper Fornecimentos',contact:'84 1111 111'}];
+    state.users = [{id:1,name:'Admin',role:'admin'}];
+    const now = new Date(); const key = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); state.turns[key] = {manha:120,tarde:95,noite:40};
+    save();}
+
+    // users
+    function addUser(){ const n=document.getElementById('userName').value.trim(); const r=document.getElementById('userRole').value; if(!n) return alert('Nome obrigatório'); state.users.push({id:Date.now(),name:n,role:r}); document.getElementById('userName').value=''; save(); }
+    function removeUser(id){ state.users = state.users.filter(u=>u.id!==id); save(); }
+
+    // suppliers
+    function addSupplier(){ const n=document.getElementById('supName').value.trim(); const c=document.getElementById('supContact').value.trim(); if(!n) return alert('Nome obrigatório'); state.suppliers.push({id:Date.now().toString(),name:n,contact:c}); document.getElementById('supName').value=''; document.getElementById('supContact').value=''; save(); }
+    function removeSupplier(id){ state.suppliers = state.suppliers.filter(s=>s.id!==id); save(); }
+
+    // purchases
+    function createPurchaseProposal(){ const pid=document.getElementById('purchaseProduct').value; const sid=document.getElementById('purchaseSupplier').value; const qty=Number(document.getElementById('purchaseQty').value||0); if(!pid||!sid||qty<=0) return alert('Selecione produto, fornecedor e quantidade'); const p=state.products.find(x=>x.id==pid); const s=state.suppliers.find(x=>x.id==sid); state.purchases.push({id:Date.now(),product:p.name,supplier:s.name,qty,created:new Date().toISOString()}); document.getElementById('purchaseQty').value=''; save(); }
+
+    // stock actions
+    function addExit(productId, qty){ const p = state.products.find(x=>x.id===productId); if(!p) return; p.exits += qty; save(); }
+    function addExitPrompt(pid){ const q = Number(prompt('Quantidade saída:',1) || 0); if(q>0) addExit(pid,q); }
+
+    // suggestions
+    function computeSuggestions(){ const arr = state.products.map(p=>({id:p.id,name:p.name,exits:p.exits,profitPer:(p.price - p.cost),profitTotal:(p.exits*(p.price - p.cost)),current: Math.max(0,p.initial - p.exits)})); arr.sort((a,b)=> (b.exits - a.exits) || (b.profitTotal - a.profitTotal)); return arr.slice(0,8); }
+
+    // alerts compute
+    function computeAlerts(){ const alerts=[]; const today=new Date(); state.products.forEach(p=>{ const current = Math.max(0,p.initial - p.exits); if(current <= Math.ceil(p.initial*0.1)) alerts.push({type:'reorder',text:`Reabastecer: ${p.name} está com ${current} unidades (<=10%).`}); const exp = new Date(p.expiry); const diffDays = Math.ceil((exp - today)/(1000*60*60*24)); if(diffDays <= 90) alerts.push({type:'expiry',text:`Vencimento: ${p.name} expira em ${diffDays} dias (${p.expiry}).`}); }); return alerts; }
+
+    // UI updates
+    function populatePanelData(){ // users list
+      const ulist = document.getElementById('usersList'); ulist.innerHTML=''; state.users.forEach(u=>{ const el=document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px 0'; el.innerHTML=`<div><strong>${u.name}</strong><div class=\"muted\">${u.role}</div></div><div><button class=\"btn ghost small\" onclick=\"removeUser(${u.id})\">Remover</button></div>`; ulist.appendChild(el); });
+      const slist = document.getElementById('supList'); slist.innerHTML=''; state.suppliers.forEach(s=>{ const el=document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px 0'; el.innerHTML=`<div><strong>${s.name}</strong><div class=\"muted\">${s.contact}</div></div><div><button class=\"btn ghost small\" onclick=\"removeSupplier('${s.id}')\">Remover</button></div>`; slist.appendChild(el); });
+      // purchase selects
+      const psel = document.getElementById('purchaseProduct'); psel.innerHTML=''; state.products.forEach(p=>{ const opt=document.createElement('option'); opt.value=p.id; opt.textContent=p.name; psel.appendChild(opt); });
+      const ssel = document.getElementById('purchaseSupplier'); ssel.innerHTML=''; state.suppliers.forEach(s=>{ const opt=document.createElement('option'); opt.value=s.id; opt.textContent=s.name; ssel.appendChild(opt); });
+
+      // purchases list
+      document.getElementById('purchaseList').innerHTML = state.purchases.map(x=>`<div style=\"padding:6px 0\"><strong>${x.product}</strong> → ${x.supplier} (<span class=\"muted\">qtd ${x.qty}</span>)</div>`).join('') || '<div class="muted">Nenhuma proposta</div>';
+
+      // reports months
+      const rsel = document.getElementById('reportsMonth'); rsel.innerHTML=''; Object.keys(state.turns).forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; rsel.appendChild(o); });
+    }
+
+    function updateUI(){
+      // totals
+      const totalItems = state.products.reduce((s,p)=> s + Math.max(0,p.initial - p.exits),0);
+      const totalValue = state.products.reduce((s,p)=> s + Math.max(0,p.initial - p.exits) * p.price,0);
+      const lowItems = state.products.filter(p => (p.initial - p.exits) <= Math.ceil(p.initial*0.1)).length;
+      document.getElementById('total-items').innerText = totalItems;
+      document.getElementById('total-value').innerText = 'MT ' + format(totalValue);
+
+      // alerts
+      const alerts = computeAlerts(); document.getElementById('alertsPanel').innerHTML = alerts.length? alerts.map(a=>`<div class=\"muted\">• ${a.text}</div>`).join('') : '<div class="muted">Sem alertas</div>';
+      document.getElementById('alertsList').innerHTML = alerts.length? alerts.map(a=>`<div style=\"padding:8px 0;border-bottom:1px solid rgba(2,6,23,0.04)\">${a.text}</div>`).join('') : '<div class="muted">Sem notificações</div>';
+
+      // stock table
+      const tbody = document.getElementById('stockTable'); tbody.innerHTML=''; state.products.forEach(p=>{ const current = Math.max(0,p.initial - p.exits); const profit = (p.price - p.cost) * p.exits; const tr = document.createElement('tr'); tr.innerHTML = `<td>${p.name}</td><td>${p.initial}</td><td>${p.exits}</td><td>${current}</td><td>MT ${format(p.price)}</td><td>MT ${format(profit)}</td><td>${p.expiry}</td><td><button class=\"btn small\" onclick=\"addExitPrompt('${p.id}')\">Registrar saída</button></td>`; tbody.appendChild(tr); });
+
+      // suggestions
+      const sugg = computeSuggestions(); document.getElementById('suggestions').innerHTML = sugg.map(x=>`<div class=\"suggestion\"><div><strong>${x.name}</strong><div class=\"muted\">Saídas: ${x.exits} • Lucro total: MT ${format(x.profitTotal)}</div></div><div><button class=\"btn small\" onclick=\"openPurchaseFor('${x.id}')\">Propor</button></div></div>`).join('');
+
+      // gold list
+      document.getElementById('goldList').innerHTML = sugg.slice(0,3).map((g,i)=>`<div style=\"padding:8px 0\"><strong>${i+1}. ${g.name}</strong><div class=\"muted\">Saídas: ${g.exits} • Lucro: MT ${format(g.profitTotal)}</div></div>`).join('');
+      document.getElementById('goldPanel').innerHTML = sugg.map((g,i)=>`<div style=\"padding:8px 0;border-bottom:1px solid rgba(2,6,23,0.03)\"><strong>${i+1}. ${g.name}</strong><div class=\"muted\">Lucro total: MT ${format(g.profitTotal)}</div></div>`).join('');
+
+      // quick suppliers
+      document.getElementById('quickSuppliers').innerHTML = state.suppliers.slice(0,4).map(s=>`<div style=\"padding:6px 0\"><strong>${s.name}</strong><div class=\"muted\">${s.contact}</div></div>`).join('') || '<div class="muted">Nenhum fornecedor</div>';
+
+      populatePanelData(); renderTurnChart(); renderShiftChart();}
+
+    // panels
+    function openPanel(name){ document.getElementById('off-'+name).classList.add('open'); populatePanelData(); }
+    function closePanel(name){ document.getElementById('off-'+name).classList.remove('open'); }
+
+    function openPurchaseFor(productId){ openPanel('purchase'); setTimeout(()=>{ document.getElementById('purchaseProduct').value = productId; },250); }
+
+    // charts
+    let turnChart=null; function renderTurnChart(){ const ctx=document.getElementById('turnChart').getContext('2d'); const months = Object.keys(state.turns); if(months.length===0){ ctx.clearRect(0,0,800,220); return; } const labels=months; const shifts = new Set(); months.forEach(m=> Object.keys(state.turns[m]).forEach(s=>shifts.add(s))); const datasets = Array.from(shifts).map((s,i)=>({label:s,data:months.map(m=>state.turns[m][s]||0),fill:false,borderWidth:2})); if(turnChart) turnChart.destroy(); turnChart = new Chart(ctx,{type:'line',data:{labels,datasets}, options:{plugins:{legend:{display:true}}}}); const select=document.getElementById('monthSelect'); select.innerHTML=''; months.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; select.appendChild(o); }); }
+
+    // shifts chart
+    let shiftChart=null; function renderShiftChart(){ const ctx=document.getElementById('shiftChart'); if(!ctx) return; const c=ctx.getContext('2d'); const months = Object.keys(state.turns); if(months.length===0){ c.clearRect(0,0,420,220); return; } const latest = months[months.length-1]; const data = Object.entries(state.turns[latest] || {}).map(([k,v])=>({k,v})); const labels = data.map(d=>d.k); const values = data.map(d=>d.v); if(shiftChart) shiftChart.destroy(); shiftChart = new Chart(c,{type:'bar',data:{labels, datasets:[{label:latest,data:values}]}, options:{plugins:{legend:{display:false}}}}); }
+
+    // downloads
+    function downloadTurnReport(){ const month = document.getElementById('monthSelect').value; if(!month) return alert('Nenhum mês'); const data = state.turns[month]; let csv = 'turno,valor'}
+  </script>
+</body>
+</html>

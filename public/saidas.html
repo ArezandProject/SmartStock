@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tela Suprema - Saída de Produtos (Vendas & Remessas)</title>
+  <style>
+    :root{--bg:#e9f9ff;--card:#fff;--accent:#0f4c81;--muted:#6b7380;--glass:rgba(255,255,255,0.8);--success:#1b9e77;--danger:#e85a4f;font-family:Inter,Roboto,Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#dff6ff 70%);color:#052033}
+    .container{max-width:1200px;margin:20px auto;padding:18px}
+    .header{display:flex;align-items:center;gap:12px}
+    .mark{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#4aa3ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:20px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:18px;margin-top:16px}
+    .panel{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 28px rgba(10,30,60,0.06)}
+    label{display:block;font-weight:700;margin-top:8px;font-size:13px}
+    input,select{width:100%;padding:10px;border-radius:8px;border:1px solid #eef6fb;background:var(--glass)}
+    .row{display:flex;gap:8px}
+    .row .col{flex:1}
+    button{padding:10px 12px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(11,33,54,0.08);color:var(--accent)}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed #f1f7fb;font-size:13px}
+    .muted{color:var(--muted)}
+    .small{font-size:12px;color:var(--muted)}
+    .stats-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:720px;background:var(--card);padding:14px;border-radius:12px;box-shadow:0 12px 40px rgba(10,30,60,0.12);display:none;z-index:999}
+    .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.4);display:none;z-index:998}
+    .receipt{width:320px;font-family:monospace;font-size:12px}
+    .highlight{background:linear-gradient(90deg,#fffbeb,#fff1f0);padding:6px;border-radius:6px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}} 
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="mark">SP</div>
+      <div>
+        <h1>Saída de Produtos</h1>
+        <div class="subtitle">Venda | Remessa | Ajuste de stock • Impressão de recibos • Estatísticas</div>
+      </div>
+      <header style="background:#e6f7ff;padding:3px 4px;display:flex;align-items:center;">
+  <a href="index.html#dashboard"
+     style="text-decoration:none;color:white;font-size:1.1rem;margin-right:8px;line-height:1;cursor:pointer;display:inline-block;
+       transform:translateY(-1px)">🔙</a>
+</header>
+      <div style="flex:1"></div>
+      <button id="doLogout" class="btn ghost" style="position:absolute; top:10px; right:10px; background-color:#ef4444; color:white; border:none; border-radius:4px; padding:4px 6px; cursor:pointer; font-size:7px;">🚪 Sair</button>
+      </div>
+      
+    
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h3>Selecionar Produto</h3>
+          <div class="small">Escolha manualmente ou use o scanner para preencher o produto.</div>
+          <label>Pesquisar produto</label>
+          <input id="search" placeholder="Nome, categoria ou código" />
+
+          <label>ou selecione da lista</label>
+          <select id="selectProduct"></select>
+
+          <label>Quantidade disponível (stock)</label>
+          <div id="stockInfo" class="small">-</div>
+
+          <div class="row">
+            <div class="col">
+              <label>Quantidade a vender</label>
+              <input id="sellQty" type="number" min="1" value="1" />
+            </div>
+            <div class="col">
+              <label>Tipo de preço</label>
+              <select id="priceType"><option value="retail">Preço unitário (Varejo)</option><option value="wholesale">Preço a grosso</option><option value="promo">Preço promocional</option></select>
+            </div>
+          </div>
+
+          <label>Desconto (%)</label>
+          <input id="discount" type="number" min="0" max="100" value="0" />
+
+          <label>Aplicar IVA?</label>
+          <select id="applyVat"><option value="yes">Sim</option><option value="no">Não</option></select>
+
+          <label>Código de barras / Scan</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="scanInput" placeholder="Digite ou escaneie" />
+            <button id="btnScan" class="ghost">Escanear</button>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button id="btnAddToCart">Adicionar ao carrinho</button>
+            <button id="btnQuickSell" class="ghost">Venda Rápida</button>
+            <button id="btnApplyPromo" class="ghost">Aplicar Promo</button>
+          </div>
+
+          <hr/>
+          <h4>Notificações / Vencimentos</h4>
+          <div id="expiries" class="small"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px">
+          <h3>Carrinho / Saída</h3>
+          <div style="overflow:auto;max-height:240px">
+            <table id="cartTable"><thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>IVA</th><th>Ganhos</th><th></th></tr></thead><tbody></tbody></table>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div>
+              <label>Cliente (opcional)</label>
+              <input id="clientName" placeholder="Nome do cliente" />
+            </div>
+            <div style="text-align:right">
+              <div class="small">Subtotal: <strong id="subtotal">0.00</strong></div>
+              <div class="small">Total IVA: <strong id="totalVat">0.00</strong></div>
+              <div style="font-size:18px">Total a Pagar: <strong id="grandTotal">0.00</strong></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+            <button id="btnShowStats" class="ghost">Ver estatísticas</button>
+            <button id="btnPrintReceipt">Gerar recibo</button>
+            <button id="btnFinalize" class="danger">Finalizar saída</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h3>Promoções & Preços</h3>
+          <label>Ativar preço promocional para um produto</label>
+          <div class="row"><input id="promoProduct" placeholder="ID ou código" /><input id="promoPrice" type="number" placeholder="Preço promo" /></div>
+          <div class="row" style="margin-top:8px"><input id="promoFrom" type="date" /><input id="promoTo" type="date" /></div>
+          <div style="display:flex;gap:8px;margin-top:8px"><button id="btnSavePromo" class="ghost">Salvar Promoção</button><button id="btnClearPromos" class="ghost">Limpar promos</button></div>
+
+          <hr/>
+          <h3>Histórico de Saídas</h3>
+          <div style="max-height:300px;overflow:auto;margin-top:8px">
+            <table id="outTable"><thead><tr><th>Data</th><th>Cliente</th><th>Itens</th><th>Total</th></tr></thead><tbody></tbody></table>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:12px">
+          <h3>Cabeçalho do recibo</h3>
+          <label>Nome da empresa</label>
+          <input id="recHeader" placeholder="Minha Empresa" />
+          <label>Endereço / nota</label>
+          <input id="recNote" placeholder="Endereço, contacto" />
+          <div style="display:flex;gap:8px;margin-top:8px"><button id="btnSaveHeader" class="ghost">Salvar cabeçalho</button><button id="btnPreviewReceipt" class="ghost">Pré-visualizar recibo</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="stats-modal" id="statsModal">
+      <h3>Estatísticas</h3>
+      <canvas id="chartSales" width="680" height="300"></canvas>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button id="closeStats" class="ghost">Fechar</button></div>
+    </div>
+
+    <!-- hidden printable area -->
+    <div id="printRoot" style="display:none"></div>
+
+    <footer style="margin-top:14px" class="small muted"> From Arezandra.Tech.</footer>
+  </div>
+
+<script>
+(function(){
+  // KEYS (same used by previous tela)
+  const KEY_PRODUCTS = 'suprema_products_v1';
+  const KEY_OUTS = 'suprema_outs_v1';
+  const KEY_PROMOS = 'suprema_promos_v1';
+  const KEY_HEADER = 'suprema_header_v1';
+
+  // DOM
+  const selectProduct = document.getElementById('selectProduct');
+  const search = document.getElementById('search');
+  const stockInfo = document.getElementById('stockInfo');
+  const sellQty = document.getElementById('sellQty');
+  const priceType = document.getElementById('priceType');
+  const discount = document.getElementById('discount');
+  const applyVat = document.getElementById('applyVat');
+  const scanInput = document.getElementById('scanInput');
+  const btnScan = document.getElementById('btnScan');
+  const btnAddToCart = document.getElementById('btnAddToCart');
+  const btnQuickSell = document.getElementById('btnQuickSell');
+  const btnFinalize = document.getElementById('btnFinalize');
+  const cartTable = document.querySelector('#cartTable tbody');
+  const subtotalEl = document.getElementById('subtotal');
+  const totalVatEl = document.getElementById('totalVat');
+  const grandTotalEl = document.getElementById('grandTotal');
+  const btnPrintReceipt = document.getElementById('btnPrintReceipt');
+  const outTable = document.getElementById('outTable').querySelector('tbody');
+  const btnShowStats = document.getElementById('btnShowStats');
+  const overlay = document.getElementById('overlay');
+  const statsModal = document.getElementById('statsModal');
+  const closeStats = document.getElementById('closeStats');
+  const chartCanvas = document.getElementById('chartSales');
+  const promoProduct = document.getElementById('promoProduct');
+  const promoPrice = document.getElementById('promoPrice');
+  const promoFrom = document.getElementById('promoFrom');
+  const promoTo = document.getElementById('promoTo');
+  const btnSavePromo = document.getElementById('btnSavePromo');
+  const btnClearPromos = document.getElementById('btnClearPromos');
+  const expiries = document.getElementById('expiries');
+  const recHeader = document.getElementById('recHeader');
+  const recNote = document.getElementById('recNote');
+  const btnSaveHeader = document.getElementById('btnSaveHeader');
+  const btnPreviewReceipt = document.getElementById('btnPreviewReceipt');
+
+  // data
+  let products = JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
+  let outs = JSON.parse(localStorage.getItem(KEY_OUTS)||'[]');
+  let promos = JSON.parse(localStorage.getItem(KEY_PROMOS)||'[]');
+  let header = JSON.parse(localStorage.getItem(KEY_HEADER)||'null') || {};
+  let cart = [];
+
+  // init
+  function saveState(){ localStorage.setItem(KEY_OUTS, JSON.stringify(outs)); localStorage.setItem(KEY_PROMOS, JSON.stringify(promos)); localStorage.setItem(KEY_HEADER, JSON.stringify(header)); }
+
+  function uid(prefix='id'){ return prefix+Math.random().toString(36).slice(2,9); }
+
+  function formatNumber(v){ return Number(v||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  function renderProductSelect(){ selectProduct.innerHTML = '<option value="">-- Selecionar --</option>' + products.map(p=>`<option value="${p.id}">${p.name} — ${p.barcode||p.id} — Stock: ${p.qty||0}</option>`).join(''); }
+
+  function findProductByBarcode(code){ return products.find(p=> (p.barcode||'').toString()===code.toString() || p.id===code); }
+
+  function updateStockInfo(p){ if(!p){ stockInfo.textContent='-'; return; } stockInfo.innerHTML = `Stock inicial: <strong>${p.qty||0}</strong> | Preço venda: <strong>${formatNumber(p.price)}</strong> | Preço grosso: <strong>${formatNumber(p.wholesale)}</strong>`; }
+
+  selectProduct.onchange = ()=>{ const p = products.find(x=>x.id===selectProduct.value); updateStockInfo(p); }
+  search.oninput = ()=>{ const term = search.value.trim().toLowerCase(); const filtered = products.filter(p=> (p.name||'').toLowerCase().includes(term) || (p.category||'').toLowerCase().includes(term) || (p.barcode||'').toLowerCase().includes(term)); selectProduct.innerHTML = '<option value="">-- Selecionar --</option>' + filtered.map(p=>`<option value="${p.id}">${p.name} — ${p.barcode||p.id} — Stock: ${p.qty||0}</option>`).join(''); }
+
+  // scanner logic (reuse BarcodeDetector when available)
+  btnScan.onclick = async ()=>{
+    const manual = prompt('Digite o código de barras (cancel para abrir câmera):');
+    if(manual){ scanInput.value = manual; const p = findProductByBarcode(manual); if(p) selectProduct.value=p.id, updateStockInfo(p); return; }
+    if(!('mediaDevices' in navigator)){ alert('Câmera não suportada.'); return; }
+    try{ const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); const v = document.createElement('video'); v.srcObject = stream; v.play(); // try BarcodeDetector
+      if(window.BarcodeDetector){ const det = new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a']}); const loop = setInterval(async ()=>{ try{ const codes = await det.detect(v); if(codes && codes.length){ const code = codes[0].rawValue; stream.getTracks().forEach(t=>t.stop()); v.remove(); clearInterval(loop); scanInput.value=code; const p = findProductByBarcode(code); if(p){ selectProduct.value=p.id; updateStockInfo(p); } alert('Código detectado: '+code); } }catch(e){} },500); setTimeout(()=>{ stream.getTracks().forEach(t=>t.stop()); v.remove(); clearInterval(loop); },15000);
+      } else { alert('BarcodeDetector não disponível — insira manualmente.'); stream.getTracks().forEach(t=>t.stop()); }
+    }catch(err){ alert('Erro câmera: '+err.message); }
+  }
+
+  // promos
+  btnSavePromo.onclick = ()=>{
+    const id = promoProduct.value.trim(); const price = Number(promoPrice.value||0); const from = promoFrom.value; const to = promoTo.value; if(!id||!price||!from||!to){ alert('Preencha todos os campos da promoção'); return; }
+    promos.push({id,price,from,to}); localStorage.setItem(KEY_PROMOS,JSON.stringify(promos)); alert('Promoção salva'); renderPromos(); }
+  btnClearPromos.onclick = ()=>{ if(!confirm('Limpar todas promoções?')) return; promos=[]; localStorage.setItem(KEY_PROMOS,JSON.stringify(promos)); renderPromos(); }
+  function renderPromos(){ /* simple list in console */ console.log('Promos',promos); }
+
+  // cart operations
+  function addToCartByProduct(p,qty,priceTypeVal,discountPct,applyVatVal){ if(!p) return; const unitPrice = (priceTypeVal==='wholesale')? (p.wholesale||p.price||0) : (p.price||0); // apply promo if exists
+    const promo = promos.find(pr=> pr.id===p.id || pr.id===p.barcode ); let finalPrice = unitPrice; const today = new Date(); if(promo){ const from = new Date(promo.from); const to = new Date(promo.to+'T23:59:59'); if(today>=from && today<=to) finalPrice = Number(promo.price); }
+    const d = Number(discountPct||0); finalPrice = finalPrice*(1-d/100);
+    const vat = applyVatVal==='yes'? (finalPrice*0.17) : 0; // assume 17% IVA
+    const gain = (finalPrice - (p.cost||0)) * qty; 
+    cart.push({id:p.id,name:p.name,qty,unitPrice:finalPrice,vat,rawUnit:unitPrice,gain}); renderCart(); }
+
+  btnAddToCart.onclick = ()=>{ const pid = selectProduct.value; if(!pid){ alert('Selecione um produto'); return; } const p = products.find(x=>x.id===pid); if(!p){ alert('Produto não encontrado'); return; } const qty = Number(sellQty.value||1); if(qty> (p.qty||0)){ if(!confirm('Quantidade maior que stock disponível. Continuar?')) return; }
+    addToCartByProduct(p,qty,priceType.value,Number(discount.value||0),applyVat.value); }
+
+  btnQuickSell.onclick = ()=>{ // sell selected product immediately
+    const pid = selectProduct.value; if(!pid){ alert('Selecione um produto'); return; } const p = products.find(x=>x.id===pid); const qty = Number(sellQty.value||1); addToCartByProduct(p,qty,priceType.value,Number(discount.value||0),applyVat.value); // finalize
+    finalizeSale(); }
+
+  function renderCart(){ cartTable.innerHTML = cart.map((it,idx)=>`<tr data-idx="${idx}"><td>${it.name}</td><td>${it.qty}</td><td>${formatNumber(it.unitPrice)}</td><td>${formatNumber(it.vat)}</td><td>${formatNumber(it.gain)}</td><td><button data-rem='${idx}' class='ghost'>Rem</button></td></tr>`).join(''); qsa('[data-rem]').forEach(b=>b.onclick=()=>{ const i=Number(b.getAttribute('data-rem')); cart.splice(i,1); renderCart(); }); recalcTotals(); }
+
+  function recalcTotals(){ const subtotal = cart.reduce((s,it)=>s + it.unitPrice*it.qty,0); const totalVat = cart.reduce((s,it)=>s + (it.vat*it.qty),0); subtotalEl.textContent = formatNumber(subtotal); totalVatEl.textContent = formatNumber(totalVat); grandTotalEl.textContent = formatNumber(subtotal + totalVat); }
+
+  function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+  // finalize: adjust stocks, save out record, print receipt
+  btnFinalize.onclick = ()=>{
+    if(cart.length===0){ alert('Carrinho vazio'); return; }
+    if(!confirm('Finalizar saída e reduzir stock?')) return; finalizeSale(); }
+
+  function finalizeSale(){ // reduce stocks
+    cart.forEach(it=>{ const p = products.find(x=>x.id===it.id); if(p){ p.qty = Math.max(0,(p.qty||0) - it.qty); } }); // record
+    const total = cart.reduce((s,it)=>s + it.unitPrice*it.qty + (it.vat*it.qty),0);
+    const out = {id: uid('out_'), date: new Date().toISOString(), client: document.getElementById('clientName').value, items: cart.slice(), total}; outs.unshift(out); saveState(); localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products)); renderOuts(); renderProductSelect(); cart = []; renderCart(); // auto-generate receipt
+    generateReceipt(out); alert('Saída registada com sucesso'); }
+
+  function generateReceipt(out){ const headerObj = header || JSON.parse(localStorage.getItem(KEY_HEADER)||'null') || {};
+    const lines = out.items.map(it=>`${it.name}\n  ${it.qty} x ${formatNumber(it.unitPrice)} = ${formatNumber(it.unitPrice*it.qty)}` ).join('\n');
+    const html = `<div class='receipt print-area'><pre style='font-family:monospace'>
+${headerObj.company || (document.getElementById('recHeader').value||'Minha Empresa')}
+${headerObj.address || (document.getElementById('recNote').value||'Endereço / Contato')}
+--------------------------------
+RECIBO: ${out.id}
+DATA: ${new Date(out.date).toLocaleString()}
+CLIENTE: ${out.client||'-'}
+--------------------------------
+${lines}
+--------------------------------
+TOTAL: ${formatNumber(out.total)} MT
+--------------------------------
+OBRIGADO PELA PREFERÊNCIA
+</pre></div>`;
+    const w = window.open('','_blank'); w.document.write('<html><head><title>Recibo</title></head><body>'+html+'</body></html>'); w.document.close(); setTimeout(()=>w.print(),500);
+  }
+
+  btnPrintReceipt.onclick = ()=>{ if(outs.length===0){ alert('Sem vendas para imprimir'); return; } generateReceipt(outs[0]); }
+
+  function renderOuts(){ outTable.innerHTML = outs.map(o=>`<tr><td>${new Date(o.date).toLocaleString()}</td><td>${o.client||'-'}</td><td>${o.items.length}</td><td>${formatNumber(o.total)}</td></tr>`).join(''); }
+
+  // stats (simple chart using Canvas 2D)
+  btnShowStats.onclick = ()=>{ const salesByDay = {}; outs.forEach(o=>{ const d = new Date(o.date).toLocaleDateString(); salesByDay[d] = (salesByDay[d]||0) + o.total; }); const labels = Object.keys(salesByDay).slice(0,15).reverse(); const values = labels.map(l=>salesByDay[l]); drawChart(labels,values); overlay.style.display='block'; statsModal.style.display='block'; }
+  closeStats.onclick = ()=>{ overlay.style.display='none'; statsModal.style.display='none'; }
+
+  function drawChart(labels,values){ const ctx = chartCanvas.getContext('2d'); chartCanvas.width = 680; chartCanvas.height = 300; ctx.clearRect(0,0,chartCanvas.width,chartCanvas.height); 
+    const w = chartCanvas.width; const h = chartCanvas.height; const max = Math.max(...values,1); const barW = (w-60)/labels.length; ctx.fillStyle = '#0f4c81'; ctx.font='12px Arial'; labels.forEach((lab,i)=>{ const val = values[i]; const barH = (val/max) * (h-80); const x = 40 + i*barW; const y = h - 40 - barH; ctx.fillRect(x,y,barW*0.7,barH); ctx.fillStyle='#052033'; ctx.fillText(lab, x, h-18); ctx.fillStyle='#0f4c81'; ctx.fillText(formatNumber(val), x, y-6); }); }
+
+  // expiries notifications (products with expiry within 90 days)
+  function checkExpiries(){ const now = new Date(); const soon = new Date(); soon.setDate(now.getDate()+90); const list = products.filter(p=>p.expiry).filter(p=>{ const d = new Date(p.expiry); return d>=now && d<=soon }); if(list.length===0) expiries.textContent='Nenhum produto com prazo < 90 dias.'; else expiries.innerHTML = list.map(p=>`<div class='highlight'>${p.name} — vence a ${new Date(p.expiry).toLocaleDateString()} (${p.qty||0} em stock)</div>`).join(''); }
+
+  // header handling
+  btnSaveHeader.onclick = ()=>{ header.company = recHeader.value; header.address = recNote.value; saveState(); alert('Cabeçalho salvo'); }
+  btnPreviewReceipt.onclick = ()=>{ const sampleOut = {id:'REC_TEST', date:new Date().toISOString(), client:'Cliente Exemplo', items:[{name:'Produto A',qty:2,unitPrice:120,vat:20}], total:260}; generateReceipt(sampleOut); }
+
+  // helpers
+  function init(){ renderProductSelect(); renderOuts(); renderPromos(); checkExpiries(); recalcTotals(); 
+    recHeader.value = header.company||''; recNote.value = header.address||''; }
+
+  init();
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Quando o conteúdo da página for carregado
+    const logoutButton = document.getElementById('doLogout');
+    
+    // Inicializando a variável logs se ela não estiver definida
+    let logs = JSON.parse(localStorage.getItem('suprema_logs_v1') || '[]'); 
+    
+    // Verificar se o botão de logout existe
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            console.log('Botão de logout clicado');
+            
+            // Lógica de logout
+            currentUser = null;  
+            sessionStorage.removeItem('suprema_current_user');  
+            
+            // Verificar se o elemento 'currentUserBadge' existe
+            const currentUserBadge = document.getElementById('currentUserBadge');
+            if (currentUserBadge) {
+                currentUserBadge.textContent = 'Usuário: guest';  
+            }
+            
+            // Registra o logout no histórico de logs
+            logs.unshift({id: uid('log_'), date: new Date().toISOString(), user: 'guest', type: 'logout', details: 'Logout'});  
+            localStorage.setItem('suprema_logs_v1', JSON.stringify(logs));  
+            
+            // Redireciona para a página index.html após o logout
+            window.location.href = 'index.html';  
+        });
+    } else {
+        console.error('Botão de logout não encontrado');
+    }
+});
+
+
+})();
+</script>
+</body>
+</html>

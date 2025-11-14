@@ -1,0 +1,23 @@
+{
+  "name": "Smart_Stock",
+  "short_name": "SmartStock",
+  "description": "Sistema de Gestão de Stock — Arezandra.Tech",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b74de",
+  "theme_color": "#0b74de",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
